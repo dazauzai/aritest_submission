@@ -58,12 +58,12 @@
             }
 
             // ✅ **正确拼接 URL**
-            var apiUrl = API_URL + "?letter=" + encodeURIComponent(letter) + "&artist=" + encodeURIComponent(artistName);
+            var apiUrl = `${API_URL}?letter=${encodeURIComponent(letter)}&artist=${encodeURIComponent(artistName)}`;
 
             console.log("请求 API:", apiUrl);
 
-            fetch(apiUrl)
-                .then(response => response.text())
+            fetch(apiUrl, { method: "GET" })  // **确保 GET 请求**
+                .then(response => response.text()) // **确保 API 返回的是文本**
                 .then(data => {
                     console.log("服务器返回:", data);
                     responseText.innerHTML = "✅ " + data;
@@ -77,36 +77,43 @@
 
         // 🎵 **加载已提交的歌手（A-Z 排序）**
         function loadArtists() {
-            var apiUrl = API_URL + "?action=getArtists";
+            var apiUrl = `${API_URL}?action=getArtists`;
 
-            fetch(apiUrl)
-                .then(response => response.json())
+            fetch(apiUrl, { method: "GET" })
+                .then(response => response.text()) // **确保返回的是纯文本**
                 .then(data => {
-                    console.log("已提交的歌手:", data);
-                    var tableBody = document.querySelector("#artistTable tbody");
-                    tableBody.innerHTML = ""; // 清空旧数据
+                    console.log("API 返回数据:", data);
 
-                    // 生成 A-Z 顺序的数组
-                    var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-                    
-                    alphabet.forEach(letter => {
-                        var row = document.createElement("tr");
-
-                        var cellLetter = document.createElement("td");
-                        cellLetter.textContent = letter;
-                        row.appendChild(cellLetter);
-
-                        var cellArtists = document.createElement("td");
-                        cellArtists.textContent = data[letter] && data[letter].length > 0 ? data[letter].join(", ") : "暂无歌手";
-                        row.appendChild(cellArtists);
-
-                        tableBody.appendChild(row);
-                    });
+                    try {
+                        var parsedData = JSON.parse(data);  // **手动解析 JSON**
+                        updateTable(parsedData);
+                    } catch (error) {
+                        console.error("JSON 解析失败:", error);
+                    }
                 })
                 .catch(error => console.error("获取歌手失败:", error));
         }
 
-        // 页面加载时不自动获取数据，让用户手动点击按钮加载
+        function updateTable(data) {
+            var tableBody = document.querySelector("#artistTable tbody");
+            tableBody.innerHTML = ""; // 清空旧数据
+
+            var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+            alphabet.forEach(letter => {
+                var row = document.createElement("tr");
+
+                var cellLetter = document.createElement("td");
+                cellLetter.textContent = letter;
+                row.appendChild(cellLetter);
+
+                var cellArtists = document.createElement("td");
+                cellArtists.textContent = data[letter] && data[letter].length > 0 ? data[letter].join(", ") : "暂无歌手";
+                row.appendChild(cellArtists);
+
+                tableBody.appendChild(row);
+            });
+        }
     </script>
 
 </body>
