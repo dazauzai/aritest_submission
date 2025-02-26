@@ -1,0 +1,137 @@
+// 处理 API 请求
+function doGet(e) {
+    if (e.parameter.action == "getArtists") {
+        return getArtists(); // 获取所有歌手
+    }
+
+    var letter = e.parameter.letter;
+    var artistName = e.parameter.artist;
+    
+    if (!letter || !artistName) {
+        return ContentService.createTextOutput("缺少参数 letter 或 artistName")
+            .setMimeType(ContentService.MimeType.TEXT);
+    }
+
+    var response = addArtist(letter, artistName);
+
+    return ContentService.createTextOutput(response)
+        .setMimeType(ContentService.MimeType.TEXT);
+}
+
+// 获取所有歌手
+function getArtists() {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = sheet.getDataRange().getValues(); // 获取所有数据
+    var headers = data[0]; // 第一行是字母
+    
+    var result = {};
+    for (var j = 0; j < headers.length; j++) {
+        var letter = headers[j]; 
+        if (!letter) continue;
+
+        var artists = [];
+        for (var i = 1; i < data.length; i++) {
+            if (data[i][j]) {
+                artists.push(data[i][j]);
+            }
+        }
+        result[letter] = artists;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+// 转换假名为罗马音（支持平假名 & 片假名）
+function convertToRomaji(japanese) {
+    var kanaToRomaji = {
+        // 平假名
+        "あ": "a", "い": "i", "う": "u", "え": "e", "お": "o",
+        "か": "ka", "き": "ki", "く": "ku", "け": "ke", "こ": "ko",
+        "さ": "sa", "し": "shi", "す": "su", "せ": "se", "そ": "so",
+        "た": "ta", "ち": "chi", "つ": "tsu", "て": "te", "と": "to",
+        "な": "na", "に": "ni", "ぬ": "nu", "ね": "ne", "の": "no",
+        "は": "ha", "ひ": "hi", "ふ": "fu", "へ": "he", "ほ": "ho",
+        "ま": "ma", "み": "mi", "む": "mu", "め": "me", "も": "mo",
+        "や": "ya", "ゆ": "yu", "よ": "yo",
+        "ら": "ra", "り": "ri", "る": "ru", "れ": "re", "ろ": "ro",
+        "わ": "wa", "を": "wo", "ん": "n",
+        "が": "ga", "ぎ": "gi", "ぐ": "gu", "げ": "ge", "ご": "go",
+        "ざ": "za", "じ": "ji", "ず": "zu", "ぜ": "ze", "ぞ": "zo",
+        "だ": "da", "ぢ": "ji", "づ": "zu", "で": "de", "ど": "do",
+        "ば": "ba", "び": "bi", "ぶ": "bu", "べ": "be", "ぼ": "bo",
+        "ぱ": "pa", "ぴ": "pi", "ぷ": "pu", "ぺ": "pe", "ぽ": "po",
+
+        // 片假名
+        "ア": "a", "イ": "i", "ウ": "u", "エ": "e", "オ": "o",
+        "カ": "ka", "キ": "ki", "ク": "ku", "ケ": "ke", "コ": "ko",
+        "サ": "sa", "シ": "shi", "ス": "su", "セ": "se", "ソ": "so",
+        "タ": "ta", "チ": "chi", "ツ": "tsu", "テ": "te", "ト": "to",
+        "ナ": "na", "ニ": "ni", "ヌ": "nu", "ネ": "ne", "ノ": "no",
+        "ハ": "ha", "ヒ": "hi", "フ": "fu", "ヘ": "he", "ホ": "ho",
+        "マ": "ma", "ミ": "mi", "ム": "mu", "メ": "me", "モ": "mo",
+        "ヤ": "ya", "ユ": "yu", "ヨ": "yo",
+        "ラ": "ra", "リ": "ri", "ル": "ru", "レ": "re", "ロ": "ro",
+        "ワ": "wa", "ヲ": "wo", "ン": "n",
+        "ガ": "ga", "ギ": "gi", "グ": "gu", "ゲ": "ge", "ゴ": "go",
+        "ザ": "za", "ジ": "ji", "ズ": "zu", "ゼ": "ze", "ゾ": "zo",
+        "ダ": "da", "ヂ": "ji", "ヅ": "zu", "デ": "de", "ド": "do",
+        "バ": "ba", "ビ": "bi", "ブ": "bu", "ベ": "be", "ボ": "bo",
+        "パ": "pa", "ピ": "pi", "プ": "pu", "ペ": "pe", "ポ": "po"
+    };
+
+    var romaji = "";
+    for (var i = 0; i < japanese.length; i++) {
+        var char = japanese[i];
+        romaji += kanaToRomaji[char] || char; // 如果找不到，就原样返回
+    }
+
+    return romaji.charAt(0).toUpperCase() + romaji.slice(1); // 让首字母大写
+}
+
+// 处理歌手提交逻辑
+function addArtist(letter, artistName) {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+    // 处理日语假名转换
+    var processedName = convertToRomaji(artistName);
+
+    // 获取输入的第一个字符
+    var firstChar = artistName.charAt(0);
+
+    // 判断是否是合法的英文或日文假名字符
+    var isEnglish = /^[A-Za-z]$/.test(firstChar);
+    var isHiragana = /^[\u3040-\u309F]$/.test(firstChar);
+    var isKatakana = /^[\u30A0-\u30FF]$/.test(firstChar);
+
+    if (!isEnglish && !isHiragana && !isKatakana) {
+        return "错误：歌手名必须以英文 (A-Z) 或 日文假名 开头";
+    }
+
+    // 检查转换后的罗马音是否以 letter 开头
+    if (processedName.charAt(0).toUpperCase() !== letter.toUpperCase()) {
+        return "错误：歌手名不以 " + letter + " 开头（检测到：" + processedName + "）";
+    }
+
+    // 找到字母所在的列
+    var columnIndex = headers.indexOf(letter.toUpperCase()) + 1;
+    if (columnIndex == 0) {
+        return "错误：字母无效";
+    }
+
+    // 获取该字母列已有的歌手数量（最多 2 个）
+    var data = sheet.getRange(2, columnIndex, 2, 1).getValues();
+    var artistCount = data.filter(row => row[0] !== "").length;
+
+    if (artistCount >= 2) {
+        return "错误：该字母的歌手已满！（最多 2 位）";
+    }
+
+    for (var i = 0; i < data.length; i++) {
+        if (data[i][0] === "") {
+            sheet.getRange(i + 2, columnIndex).setValue(artistName);
+            return "成功添加：" + artistName + "（识别为 " + processedName + "）到 " + letter;
+        }
+    }
+}
