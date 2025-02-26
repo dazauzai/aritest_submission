@@ -1,137 +1,109 @@
-// 处理 API 请求
-function doGet(e) {
-    if (e.parameter.action == "getArtists") {
-        return getArtists(); // 获取所有歌手
-    }
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌手提交系统</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        input, button { padding: 10px; margin: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 10px; text-align: left; }
+    </style>
+</head>
+<body>
 
-    var letter = e.parameter.letter;
-    var artistName = e.parameter.artist;
+    <h2>提交你的歌手</h2>
     
-    if (!letter || !artistName) {
-        return ContentService.createTextOutput("缺少参数 letter 或 artistName")
-            .setMimeType(ContentService.MimeType.TEXT);
-    }
-
-    var response = addArtist(letter, artistName);
-
-    return ContentService.createTextOutput(response)
-        .setMimeType(ContentService.MimeType.TEXT);
-}
-
-// 获取所有歌手
-function getArtists() {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var data = sheet.getDataRange().getValues(); // 获取所有数据
-    var headers = data[0]; // 第一行是字母
-    
-    var result = {};
-    for (var j = 0; j < headers.length; j++) {
-        var letter = headers[j]; 
-        if (!letter) continue;
-
-        var artists = [];
-        for (var i = 1; i < data.length; i++) {
-            if (data[i][j]) {
-                artists.push(data[i][j]);
+    <label for="letter">选择字母：</label>
+    <select id="letter">
+        <script>
+            for (let i = 65; i <= 90; i++) {
+                document.write(`<option value="${String.fromCharCode(i)}">${String.fromCharCode(i)}</option>`);
             }
+        </script>
+    </select>
+
+    <input type="text" id="artistName" placeholder="输入歌手名">
+    <button onclick="submitArtist()">提交</button>
+
+    <p id="response"></p>
+
+    <h2>当前提交的歌手</h2>
+    <button onclick="loadArtists()">🔄 加载歌手</button> <!-- 添加刷新按钮 -->
+
+    <table id="artistTable">
+        <thead>
+            <tr>
+                <th>字母</th>
+                <th>歌手列表</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        // 提交歌手
+        function submitArtist() {
+            var letter = document.getElementById("letter").value;
+            var artistName = document.getElementById("artistName").value.trim();
+            var responseText = document.getElementById("response");
+
+            if (!artistName) {
+                responseText.innerHTML = "❌ 请输入歌手名称";
+                return;
+            }
+
+            var apiUrl = "https://script.google.com/macros/s/AKfycbxaQqcOdPCCp2QBIUnfROP_YY8DDN6bxaBLl5vT1nJOyc4mPLy7OUqqtda4DSwkbIbY9w/exec?letter=" + encodeURIComponent(letter) + "&artist=" + encodeURIComponent(artistName);
+
+            console.log("请求 API:", apiUrl);
+
+            fetch(apiUrl)
+                .then(response => response.text())
+                .then(data => {
+                    console.log("服务器返回:", data);
+                    responseText.innerHTML = "✅ " + data;
+                    loadArtists(); // 提交成功后自动刷新列表
+                })
+                .catch(error => {
+                    console.error("Fetch 错误:", error);
+                    responseText.innerHTML = "❌ 提交失败：" + error;
+                });
         }
-        result[letter] = artists;
-    }
 
-    return ContentService.createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
-}
+        // 加载已提交的歌手（并按 A-Z 排列）
+        function loadArtists() {
+            var apiUrl = "https://script.google.com/macros/s/AKfycbxaQqcOdPCCp2QBIUnfROP_YY8DDN6bxaBLl5vT1nJOyc4mPLy7OUqqtda4DSwkbIbY9w/exec?action=getArtists";
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("已提交的歌手:", data);
+                    var tableBody = document.querySelector("#artistTable tbody");
+                    tableBody.innerHTML = ""; // 清空旧数据
 
-// 转换假名为罗马音（支持平假名 & 片假名）
-function convertToRomaji(japanese) {
-    var kanaToRomaji = {
-        // 平假名
-        "あ": "a", "い": "i", "う": "u", "え": "e", "お": "o",
-        "か": "ka", "き": "ki", "く": "ku", "け": "ke", "こ": "ko",
-        "さ": "sa", "し": "shi", "す": "su", "せ": "se", "そ": "so",
-        "た": "ta", "ち": "chi", "つ": "tsu", "て": "te", "と": "to",
-        "な": "na", "に": "ni", "ぬ": "nu", "ね": "ne", "の": "no",
-        "は": "ha", "ひ": "hi", "ふ": "fu", "へ": "he", "ほ": "ho",
-        "ま": "ma", "み": "mi", "む": "mu", "め": "me", "も": "mo",
-        "や": "ya", "ゆ": "yu", "よ": "yo",
-        "ら": "ra", "り": "ri", "る": "ru", "れ": "re", "ろ": "ro",
-        "わ": "wa", "を": "wo", "ん": "n",
-        "が": "ga", "ぎ": "gi", "ぐ": "gu", "げ": "ge", "ご": "go",
-        "ざ": "za", "じ": "ji", "ず": "zu", "ぜ": "ze", "ぞ": "zo",
-        "だ": "da", "ぢ": "ji", "づ": "zu", "で": "de", "ど": "do",
-        "ば": "ba", "び": "bi", "ぶ": "bu", "べ": "be", "ぼ": "bo",
-        "ぱ": "pa", "ぴ": "pi", "ぷ": "pu", "ぺ": "pe", "ぽ": "po",
+                    // 生成 A-Z 顺序的数组
+                    var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+                    
+                    alphabet.forEach(letter => {
+                        var row = document.createElement("tr");
 
-        // 片假名
-        "ア": "a", "イ": "i", "ウ": "u", "エ": "e", "オ": "o",
-        "カ": "ka", "キ": "ki", "ク": "ku", "ケ": "ke", "コ": "ko",
-        "サ": "sa", "シ": "shi", "ス": "su", "セ": "se", "ソ": "so",
-        "タ": "ta", "チ": "chi", "ツ": "tsu", "テ": "te", "ト": "to",
-        "ナ": "na", "ニ": "ni", "ヌ": "nu", "ネ": "ne", "ノ": "no",
-        "ハ": "ha", "ヒ": "hi", "フ": "fu", "ヘ": "he", "ホ": "ho",
-        "マ": "ma", "ミ": "mi", "ム": "mu", "メ": "me", "モ": "mo",
-        "ヤ": "ya", "ユ": "yu", "ヨ": "yo",
-        "ラ": "ra", "リ": "ri", "ル": "ru", "レ": "re", "ロ": "ro",
-        "ワ": "wa", "ヲ": "wo", "ン": "n",
-        "ガ": "ga", "ギ": "gi", "グ": "gu", "ゲ": "ge", "ゴ": "go",
-        "ザ": "za", "ジ": "ji", "ズ": "zu", "ゼ": "ze", "ゾ": "zo",
-        "ダ": "da", "ヂ": "ji", "ヅ": "zu", "デ": "de", "ド": "do",
-        "バ": "ba", "ビ": "bi", "ブ": "bu", "ベ": "be", "ボ": "bo",
-        "パ": "pa", "ピ": "pi", "プ": "pu", "ペ": "pe", "ポ": "po"
-    };
+                        var cellLetter = document.createElement("td");
+                        cellLetter.textContent = letter;
+                        row.appendChild(cellLetter);
 
-    var romaji = "";
-    for (var i = 0; i < japanese.length; i++) {
-        var char = japanese[i];
-        romaji += kanaToRomaji[char] || char; // 如果找不到，就原样返回
-    }
+                        var cellArtists = document.createElement("td");
+                        cellArtists.textContent = data[letter] && data[letter].length > 0 ? data[letter].join(", ") : "暂无歌手";
+                        row.appendChild(cellArtists);
 
-    return romaji.charAt(0).toUpperCase() + romaji.slice(1); // 让首字母大写
-}
-
-// 处理歌手提交逻辑
-function addArtist(letter, artistName) {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-
-    // 处理日语假名转换
-    var processedName = convertToRomaji(artistName);
-
-    // 获取输入的第一个字符
-    var firstChar = artistName.charAt(0);
-
-    // 判断是否是合法的英文或日文假名字符
-    var isEnglish = /^[A-Za-z]$/.test(firstChar);
-    var isHiragana = /^[\u3040-\u309F]$/.test(firstChar);
-    var isKatakana = /^[\u30A0-\u30FF]$/.test(firstChar);
-
-    if (!isEnglish && !isHiragana && !isKatakana) {
-        return "错误：歌手名必须以英文 (A-Z) 或 日文假名 开头";
-    }
-
-    // 检查转换后的罗马音是否以 letter 开头
-    if (processedName.charAt(0).toUpperCase() !== letter.toUpperCase()) {
-        return "错误：歌手名不以 " + letter + " 开头（检测到：" + processedName + "）";
-    }
-
-    // 找到字母所在的列
-    var columnIndex = headers.indexOf(letter.toUpperCase()) + 1;
-    if (columnIndex == 0) {
-        return "错误：字母无效";
-    }
-
-    // 获取该字母列已有的歌手数量（最多 2 个）
-    var data = sheet.getRange(2, columnIndex, 2, 1).getValues();
-    var artistCount = data.filter(row => row[0] !== "").length;
-
-    if (artistCount >= 2) {
-        return "错误：该字母的歌手已满！（最多 2 位）";
-    }
-
-    for (var i = 0; i < data.length; i++) {
-        if (data[i][0] === "") {
-            sheet.getRange(i + 2, columnIndex).setValue(artistName);
-            return "成功添加：" + artistName + "（识别为 " + processedName + "）到 " + letter;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error("获取歌手失败:", error));
         }
-    }
-}
+
+        // 页面加载时不自动获取数据，让用户手动点击按钮加载
+    </script>
+
+</body>
+</html>
