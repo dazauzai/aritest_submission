@@ -43,22 +43,26 @@
     </table>
 
     <script>
-        // 提交歌手
+        // ✅ **API 端点**
+        const API_URL = "https://script.google.com/macros/s/AKfycbxaQqcOdPCCp2QBIUnfROP_YY8DDN6bxaBLl5vT1nJOyc4mPLy7OUqqtda4DSwkbIbY9w/exec";
+
+        // 🎤 **提交歌手**
         function submitArtist() {
-            var letter = document.getElementById("letter").value;
-            var artistName = document.getElementById("artistName").value.trim();
-            var responseText = document.getElementById("response");
+            const letter = document.getElementById("letter").value;
+            const artistName = document.getElementById("artistName").value.trim();
+            const responseText = document.getElementById("response");
 
             if (!artistName) {
                 responseText.innerHTML = "❌ 请输入歌手名称";
                 return;
             }
 
-            var apiUrl = "https://script.google.com/macros/s/AKfycbxaQqcOdPCCp2QBIUnfROP_YY8DDN6bxaBLl5vT1nJOyc4mPLy7OUqqtda4DSwkbIbY9w/exec?letter=" + encodeURIComponent(letter) + "&artist=" + encodeURIComponent(artistName);
+            // ✅ **正确拼接 URL**
+            const apiUrl = `${API_URL}?letter=${encodeURIComponent(letter)}&artist=${encodeURIComponent(artistName)}`;
 
             console.log("请求 API:", apiUrl);
 
-            fetch(apiUrl)
+            fetch(apiUrl, { method: "GET" })  // 确保 GET 请求
                 .then(response => response.text())
                 .then(data => {
                     console.log("服务器返回:", data);
@@ -71,38 +75,38 @@
                 });
         }
 
-        // 加载已提交的歌手（并按 A-Z 排列）
+        // 🎵 **加载已提交的歌手（A-Z 排序）**
         function loadArtists() {
-            var apiUrl = "https://script.google.com/macros/s/AKfycbxaQqcOdPCCp2QBIUnfROP_YY8DDN6bxaBLl5vT1nJOyc4mPLy7OUqqtda4DSwkbIbY9w/exec?action=getArtists";
-            
-            fetch(apiUrl)
+            const apiUrl = `${API_URL}?action=getArtists`;
+
+            fetch(apiUrl, { method: "GET" })
                 .then(response => response.json())
                 .then(data => {
                     console.log("已提交的歌手:", data);
-                    var tableBody = document.querySelector("#artistTable tbody");
+                    const tableBody = document.querySelector("#artistTable tbody");
                     tableBody.innerHTML = ""; // 清空旧数据
 
                     // 生成 A-Z 顺序的数组
-                    var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-                    
-                    alphabet.forEach(letter => {
-                        var row = document.createElement("tr");
+                    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-                        var cellLetter = document.createElement("td");
+                    alphabet.forEach(letter => {
+                        const row = document.createElement("tr");
+
+                        const cellLetter = document.createElement("td");
                         cellLetter.textContent = letter;
                         row.appendChild(cellLetter);
 
-                        var cellArtists = document.createElement("td");
+                        const cellArtists = document.createElement("td");
                         cellArtists.textContent = data[letter] && data[letter].length > 0 ? data[letter].join(", ") : "暂无歌手";
                         row.appendChild(cellArtists);
 
                         tableBody.appendChild(row);
                     });
                 })
-                .catch(error => console.error("获取歌手失败:", error));
+                .catch(error => {
+                    console.error("获取歌手失败:", error);
+                });
         }
-
-        // 页面加载时不自动获取数据，让用户手动点击按钮加载
     </script>
 
 </body>
